@@ -1,4 +1,9 @@
 const cells = document.querySelectorAll('.cell');
+const statusDiv = document.createElement('div');
+statusDiv.style.marginTop = '15px';
+statusDiv.style.fontSize = '1.2rem';
+document.querySelector('.container').appendChild(statusDiv);
+
 let board = Array(9).fill(null);
 let playerTurn = true;
 const difficultySelect = document.getElementById('difficulty');
@@ -34,6 +39,7 @@ function resetGame() {
   board = Array(9).fill(null);
   playerTurn = true;
   renderBoard();
+  statusDiv.textContent = '';
 }
 
 function computerMove() {
@@ -44,8 +50,10 @@ function computerMove() {
     move = randomMove();
   } else if (difficulty === 'medium') {
     move = mediumMove();
-  } else {
+  } else if (difficulty === 'hard') {
     move = hardMove();
+  } else { // impossible
+    move = impossibleMove();
   }
 
   setTimeout(() => {
@@ -53,13 +61,13 @@ function computerMove() {
     renderBoard();
 
     if (checkWin('O')) {
-      alert('O computador venceu!');
+      statusDiv.textContent = 'Computer Wins! 😢';
       resetGame();
       return;
     }
 
     if (checkDraw()) {
-      alert('Empate!');
+      statusDiv.textContent = "It's a Draw! 🤝";
       resetGame();
       return;
     }
@@ -68,13 +76,14 @@ function computerMove() {
   }, 400);
 }
 
+// Easy: random
 function randomMove() {
   const empty = board.map((v,i) => v === null ? i : null).filter(v => v !== null);
   return empty[Math.floor(Math.random() * empty.length)];
 }
 
+// Medium: bloqueia e ataca óbvio
 function mediumMove() {
-
   for (let i = 0; i < 9; i++) {
     if (!board[i]) {
       board[i] = 'O';
@@ -97,7 +106,77 @@ function mediumMove() {
   return randomMove();
 }
 
+// Hard: estratégias + mini MiniMax
 function hardMove() {
+  // Prioridade 1: ganhar se possível
+  for (let i = 0; i < 9; i++) {
+    if (!board[i]) {
+      board[i] = 'O';
+      if (checkWin('O')) return i;
+      board[i] = null;
+    }
+  }
+  // Prioridade 2: bloquear jogador
+  for (let i = 0; i < 9; i++) {
+    if (!board[i]) {
+      board[i] = 'X';
+      if (checkWin('X')) {
+        board[i] = null;
+        return i;
+      }
+      board[i] = null;
+    }
+  }
+  // Prioridade 3: MiniMax limitado (olhar 1 jogada à frente)
+  let bestScore = -Infinity;
+  let bestMove;
+  for (let i = 0; i < 9; i++) {
+    if (!board[i]) {
+      board[i] = 'O';
+      let score = miniMaxLimited(board, 0, false);
+      board[i] = null;
+      if (score > bestScore) {
+        bestScore = score;
+        bestMove = i;
+      }
+    }
+  }
+  // Prioridade 4: se não encontrar melhor, escolhe aleatório
+  return bestMove !== undefined ? bestMove : randomMove();
+}
+
+// MiniMax limitado para Hard
+function miniMaxLimited(newBoard, depth, isMaximizing) {
+  if (checkWin('O')) return 10 - depth;
+  if (checkWin('X')) return depth - 10;
+  if (checkDraw()) return 0;
+  if (depth >= 1) return 0; // Limite para não ser perfeito
+
+  if (isMaximizing) {
+    let bestScore = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (!newBoard[i]) {
+        newBoard[i] = 'O';
+        bestScore = Math.max(bestScore, miniMaxLimited(newBoard, depth+1, false));
+        newBoard[i] = null;
+      }
+    }
+    return bestScore;
+  } else {
+    let bestScore = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (!newBoard[i]) {
+        newBoard[i] = 'X';
+        bestScore = Math.min(bestScore, miniMaxLimited(newBoard, depth+1, true));
+        newBoard[i] = null;
+      }
+    }
+    return bestScore;
+  }
+}
+
+// Impossible: MiniMax completo
+function impossibleMove() {
   let bestScore = -Infinity;
   let bestMove;
   for (let i = 0; i < 9; i++) {
@@ -150,13 +229,13 @@ cells.forEach((cell, i) => {
     renderBoard();
 
     if (checkWin('X')) {
-      alert('Parabéns! Ganhou!');
+      statusDiv.textContent = 'You Win! 🎉';
       resetGame();
       return;
     }
 
     if (checkDraw()) {
-      alert('Empate!');
+      statusDiv.textContent = "It's a Draw! 🤝";
       resetGame();
       return;
     }
